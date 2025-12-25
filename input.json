@@ -1,0 +1,214 @@
+{
+  "client": {
+    "id": "client_v1_mobile_sdk",
+    "language": "python",
+    "code": "import requests\n\nBASE_URL = \"https://api.example.com\"\n\ndef get_user(user_id: int, session_cookie: str):\n    url = f\"{BASE_URL}/api/users/{user_id}\"\n    headers = {\n        \"Accept\": \"application/json\",\n        \"Cookie\": f\"session={session_cookie}\",\n    }\n    r = requests.get(url, headers=headers, timeout=10)\n    r.raise_for_status()\n    data = r.json()\n    return {\n        \"id\": data[\"id\"],\n        \"username\": data[\"username\"],\n        \"about_me\": data[\"about_me\"],\n    }\n",
+    "assumptions": {
+      "base_url": "https://api.example.com",
+      "endpoints": [
+        {
+          "method": "GET",
+          "path": "/api/users/{id}"
+        }
+      ],
+      "auth": {
+        "type": "cookie_session",
+        "details": {
+          "cookie_name": "session",
+          "expects_browser_session": true
+        }
+      }
+    }
+  },
+  "server": {
+    "openapi": {
+      "openapi": "3.0.3",
+      "paths": {
+        "/api/v2/users/{id}": {
+          "get": {
+            "summary": "Get user by id",
+            "security": [
+              {
+                "bearerAuth": []
+              }
+            ],
+            "parameters": [
+              {
+                "name": "id",
+                "in": "path",
+                "required": true,
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            ],
+            "responses": {
+              "200": {
+                "description": "OK",
+                "content": {
+                  "application/json": {
+                    "schema": {
+                      "$ref": "#/components/schemas/UserV2"
+                    }
+                  }
+                }
+              },
+              "401": {
+                "description": "Unauthorized"
+              }
+            }
+          }
+        }
+      },
+      "components": {
+        "securitySchemes": {
+          "bearerAuth": {
+            "type": "http",
+            "scheme": "bearer"
+          }
+        },
+        "schemas": {
+          "UserV2": {
+            "type": "object",
+            "required": [
+              "id",
+              "username",
+              "last_seen",
+              "_links"
+            ],
+            "properties": {
+              "id": {
+                "type": "integer"
+              },
+              "username": {
+                "type": "string"
+              },
+              "last_seen": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "profile": {
+                "type": "object",
+                "properties": {
+                  "about_me": {
+                    "type": "string"
+                  }
+                }
+              },
+              "_links": {
+                "type": "object",
+                "properties": {
+                  "self": {
+                    "type": "string"
+                  },
+                  "followers": {
+                    "type": "string"
+                  },
+                  "followed": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "observations": {
+    "samples": [
+      {
+        "id": "old_client_call_fails_removed_endpoint",
+        "request": {
+          "method": "GET",
+          "path": "/api/users/123",
+          "headers": {
+            "Host": "api.example.com",
+            "Accept": "application/json",
+            "Cookie": "session=abc123"
+          },
+          "body": null
+        },
+        "response": {
+          "status": 404,
+          "headers": {
+            "Content-Type": "application/json"
+          },
+          "body": {
+            "error": "Not Found",
+            "message": "Endpoint /api/users/{id} has been removed. Use /api/v2/users/{id}."
+          }
+        }
+      },
+      {
+        "id": "new_endpoint_success_with_bearer_token",
+        "request": {
+          "method": "GET",
+          "path": "/api/v2/users/123",
+          "headers": {
+            "Host": "api.example.com",
+            "Accept": "application/json",
+            "Authorization": "Bearer <token>"
+          },
+          "body": null
+        },
+        "response": {
+          "status": 200,
+          "headers": {
+            "Content-Type": "application/json"
+          },
+          "body": {
+            "id": 123,
+            "username": "susan",
+            "last_seen": "2017-10-20T15:04:27Z",
+            "profile": {
+              "about_me": "Hello, my name is Susan!"
+            },
+            "_links": {
+              "self": "/api/v2/users/123",
+              "followers": "/api/v2/users/123/followers",
+              "followed": "/api/v2/users/123/followed"
+            }
+          }
+        }
+      }
+    ],
+    "changelog": "- Introduced API versioning under /api/v2.\n- Migrated non-browser clients to token-based authentication.\n- User payload structure updated to support extensibility.\n"
+  },
+  "compat_policy": {
+    "compat_window_days": 90,
+    "deprecated_endpoints": [
+      {
+        "method": "GET",
+        "path": "/api/users/{id}",
+        "behavior": "stable_error",
+        "expected_status": 404,
+        "expected_error_schema": {
+          "type": "object",
+          "required": [
+            "error",
+            "message"
+          ],
+          "properties": {
+            "error": {
+              "type": "string"
+            },
+            "message": {
+              "type": "string"
+            }
+          }
+        },
+        "message_must_contain": [
+          "/api/v2/users/{id}"
+        ]
+      }
+    ],
+    "schema_compat": {
+      "user_payload": {
+        "allow_dual_about_me": false,
+        "new_location": "profile.about_me",
+        "old_location": "about_me"
+      }
+    }
+  }
+}
