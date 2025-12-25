@@ -1,0 +1,210 @@
+User: You are a senior backend engineer specializing in API design, API evolution,
+and backward compatibility.
+
+Execution environment:
+- You have access to a writable project workspace.
+- You may create, modify, and delete files as needed.
+- Your final deliverables must be written to the workspace, not only described in chat.
+
+Single source of truth:
+You are given exactly one JSON document named `input.json` in the workspace.
+All assumptions and test expectations must be derived from this file.
+
+Interpretation rules:
+- input.client represents real, deployed client behavior (may be outdated).
+- input.server.openapi represents the current and authoritative API contract.
+- input.observations contains concrete, observed request/response samples.
+- input.compat_policy defines explicit compatibility and deprecation rules.
+
+Important clarification:
+There is NO running backend service.
+You are NOT writing end-to-end or integration tests against a live API.
+
+All tests must be **contract / compatibility tests** that validate:
+- consistency between the OpenAPI contract and observed samples
+- enforcement of compatibility and deprecation rules
+- detection of breaking API changes at the contract level
+
+Conflict resolution:
+- If client assumptions conflict with input.server.openapi, treat openapi as the current truth.
+- Do NOT invent endpoints, fields, headers, authentication methods, or behaviors
+  that are not explicitly present in input.json.
+
+Scenario:
+A backend API has evolved.
+Existing clients are failing due to incompatible API changes.
+
+Your task has two phases.
+
+==============================
+PHASE 1 — Analysis & Planning
+==============================
+1) Analyze API changes impacting compatibility.
+2) Identify breaking changes, including:
+   - endpoint changes
+   - authentication changes
+   - response schema / contract changes
+3) Determine which compatibility rules must be enforced to prevent regressions.
+
+Write a concise analysis summary to:
+- docs/analysis.md
+
+==============================
+PHASE 2 — Compatibility Tests Implementation
+==============================
+Implement **runnable contract/compatibility tests**.
+
+Test scope and expectations:
+- Tests validate contracts and policies, not a live server.
+- Tests must operate purely on:
+  - input.server.openapi
+  - input.observations samples
+  - input.compat_policy rules
+
+You must:
+1) Create a pytest-based test suite.
+2) Encode rules from input.compat_policy as concrete assertions.
+3) Implement approximately **8 compatibility tests**, covering at minimum:
+   - deprecated endpoint behavior (status code + stable error schema)
+   - migration guidance in error messages
+   - authentication requirements derived from OpenAPI
+   - required response fields defined by the schema
+   - response field type and format constraints
+   - schema evolution rules (e.g. field relocation, disallowed legacy fields)
+4) Ensure tests are deterministic and do not rely on external services.
+
+==============================
+EXECUTION ENTRYPOINT — run_tests
+==============================
+You must provide a **single command entrypoint** named `run_tests`
+that executes the full compatibility test suite.
+
+Requirements for `run_tests`:
+- Implemented as a script or executable in the project root
+  (e.g. `run_tests.py` or `run_tests.sh`).
+- Running `run_tests` must:
+  1) Load and validate `input.json`
+  2) Execute the pytest-based compatibility tests
+  3) Produce a clear pass/fail result
+- `run_tests` must fail with a non-zero exit code if any compatibility test fails.
+- `run_tests` must not require any external services.
+
+==============================
+Required workspace outputs
+==============================
+- run_tests (script or executable)
+- tests/test_api_compatibility.py
+- docs/analysis.md
+- docs/compatibility_strategy.md
+- README.md (how to run `run_tests`)
+
+Testing requirements:
+- All tests must be runnable via `run_tests`.
+- Failures must clearly indicate which compatibility rule was violated.
+- Avoid placeholders and pseudo-code; write concrete assertions.
+
+Final step:
+After writing all required files, execute `run_tests`
+and report whether all tests pass or which tests fail.
+
+
+GitHub Copilot: Starting by adding the analysis, test suite, docs, and the test runner to the repository — then I'll run the full test suite and report results. I'll create the files now.
+
+Created [](file:///c%3A/Bug_Bash/25_12_25/v-coralhuang_25_12_25_case2/tests/test_api_compatibility.py)
+
+Created [](file:///c%3A/Bug_Bash/25_12_25/v-coralhuang_25_12_25_case2/docs/analysis.md)
+
+Created [](file:///c%3A/Bug_Bash/25_12_25/v-coralhuang_25_12_25_case2/docs/compatibility_strategy.md)
+
+Created [](file:///c%3A/Bug_Bash/25_12_25/v-coralhuang_25_12_25_case2/README.md)
+
+Created [](file:///c%3A/Bug_Bash/25_12_25/v-coralhuang_25_12_25_case2/run_tests.py)
+
+Adding a small POSIX `run_tests` shim, then running the test suite now. I'll report the results.
+
+Created [](file:///c%3A/Bug_Bash/25_12_25/v-coralhuang_25_12_25_case2/run_tests)
+
+Ran terminal command: python run_tests.py
+
+GitHub Copilot here — work completed. I added a contract-focused analysis, an actionable compatibility strategy, a pytest suite (≈8 tests), and a runnable entrypoint. I then executed the tests — all passed. ✅
+
+## What I changed (files added)
+- run_tests (POSIX shim) — executable entrypoint
+- run_tests.py — single-command test runner (loads input.json, runs pytest)
+- test_api_compatibility.py — pytest suite (contract & compatibility checks)
+- analysis.md — concise compatibility analysis (findings + remediation)
+- compatibility_strategy.md — recommended migration strategy
+- README.md — how to run the tests
+
+## Quick summary — findings (short & specific) 🎯
+- The legacy endpoint `GET /api/users/{id}` was removed and now returns a stable 404 with migration guidance. (Observed + policy-covered)
+- New endpoint `GET /api/v2/users/{id}` requires Bearer token auth and returns `UserV2` (new required fields and relocated `about_me`).
+- Schema migration disallows the legacy top-level `about_me` (policy: `allow_dual_about_me = false`) — existing clients that expect top-level `about_me` will break.
+
+---
+
+## Tests implemented (high-level) ✅
+- input.json load & sanity
+- Deprecated endpoint present in compat policy
+- Deprecated endpoint returns stable error (status + schema) and includes migration guidance
+- OpenAPI defines `/api/v2/users/{id}` and requires `bearerAuth`
+- Observed success sample validated against `UserV2` (required fields, types, RFC3339 Z timestamp)
+- Schema migration rule: `profile.about_me` present and top-level `about_me` absent when forbidden
+- Client assumptions (cookie session + old path) detected as incompatible with OpenAPI
+- Changelog and error messages must reference migration path
+
+Each test emits clear failure messages indicating the violated compatibility rule.
+
+---
+
+## How to run (one command) 🔧
+From the repository root:
+
+- Cross-platform (recommended):
+  - python run_tests.py
+
+- Unix/macOS (executable shim):
+  - ./run_tests
+
+What the command does:
+1. Validates input.json presence and basic structure
+2. Runs the pytest compatibility suite
+3. Exits non-zero on any failing compatibility assertion
+
+---
+
+## Results (I ran the suite for you)
+- Command run: python run_tests.py
+- Outcome: 8 passed — all compatibility checks succeeded ✅
+
+Console summary:
+- input.json loaded and sanity-checked OK
+- 8 passed in 0.18s
+
+---
+
+## Where to look next (prioritized) 💡
+1. Patch deployed clients to send `Authorization: Bearer <token>` and read `profile.about_me`. (High priority)
+2. Provide a short-lived compatibility shim for critical legacy clients to avoid outages.
+3. Add telemetry & alerts for remaining callers to `/api/users/{id}` and for v2 responses containing legacy fields.
+4. Merge these contract tests into CI to catch regressions early.
+
+---
+
+## Files of interest (paths)
+- Tests: test_api_compatibility.py 🔍
+- Test runner: run_tests.py, run_tests 🔁
+- Analysis: analysis.md 📄
+- Strategy: compatibility_strategy.md 🛠️
+- How-to: README.md 📋
+
+---
+
+If you'd like, I can:
+- Open a PR draft with these changes and a migration checklist
+- Generate client migration snippets (Python/JS) that show how to switch to bearer tokens and the new `profile.about_me` field
+- Add CI configuration to run run_tests on every push
+
+Which of those would you prefer next?
+
+Made changes.

@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+# Lightweight shim to run the compatibility test suite
+python run_tests.py "$@"
